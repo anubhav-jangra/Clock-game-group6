@@ -1,3 +1,4 @@
+import os
 import time
 import numpy as np
 from functools import reduce
@@ -24,8 +25,14 @@ class  clockGame():
     def __init__(self, args):
         self.use_gui = True
         self.rng = np.random.default_rng(int(args.seed))
+        self._p0 = int(args.p0)
+        self._p1 = int(args.p1)
+        self._p2 = int(args.p2)
+        self._run_id = int(args.run_id)
         self.max_time = constants.timeout
-        with open("log_moves.txt", 'w' ) as f:
+        if not os.path.exists("logs"):
+            os.mkdir("logs")
+        with open(f"logs/log_moves_{self._run_id}.txt", 'w' ) as f:
             f.write("The game.....has started.")
             f.write('\n')
         self.players = []
@@ -172,8 +179,8 @@ class  clockGame():
         student_hour = hour%12
         if student_hour == 0:
             student_hour = 12
-        with open("log_moves.txt", 'a' ) as f:
-            f.write("Move "+ str(self.counter-1) + " : player " + str(player_number+1) + " ,time " + str(time_taken) + "s, "+ letter + " at " + str(student_hour))
+        with open(f"logs/log_moves_{self._run_id}.txt", 'a' ) as f:
+            f.write("Move "+ str(self.counter-1) + " : player " + str(player_number) + " ,time " + str(time_taken) + "s, "+ letter + " at " + str(student_hour))
             f.write('\n')
         
     
@@ -203,14 +210,10 @@ class  clockGame():
             self.scores[i] = score
         if self.use_gui:
             self.clockapp_instance["scores"] = self.scores
-        print("Player 1 has score " + str(self.scores[0]))
-        print("Player 2 has score " + str(self.scores[1]))
-        print("Player 3 has score " + str(self.scores[2]))
         tie = False
         winner = np.argmax(np.array(self.scores)) + 1
         if self.scores[winner-1] == self.scores[(winner-2)%3] or self.scores[winner-1] == self.scores[(winner)%3]:
             tie = True
-        print("Congratulations Player "+str(winner)+" you are the winner!!!")
         unsatisfied_constraints = copy.deepcopy(self.constraints)
         for i_con in range(3):
             for j_con in range(len(self.satisfied_constraints[i_con])):
@@ -225,7 +228,7 @@ class  clockGame():
             for j in range(len(self.time_move_start)):
                 if j%3==i_tim:
                     total_time_taken_cumulative[i_tim] = total_time_taken_cumulative[i_tim] + self.time_move_end[j] - self.time_move_start[j]
-        with open("log_moves.txt", 'a') as f:
+        with open(f"logs/log_moves_{self._run_id}.txt", 'a') as f:
             f.write("Player 1 has score " + str(self.scores[0]) + " with satistied constraints " + str(self.satisfied_constraints[0]) + " unsatisfied constraints "+ str(unsatisfied_constraints[0]) + " and initial constraints "+ str(self.initial_constraints[0]))
             f.write('\n')
             f.write("Player 2 has score " + str(self.scores[1]) + " with satistied constraints " + str(self.satisfied_constraints[1]) + " unsatisfied constraints "+ str(unsatisfied_constraints[1]) + " and initial constraints "+ str(self.initial_constraints[1]))
@@ -285,8 +288,8 @@ class  clockGame():
             choose_end = float(time.time())
             self.time_choose[player_number] = choose_end - choose_start
             self.constraints_inputted[player_number] = True
-        current_territory = [x+1 for x in self.curr_territory]
         start_play = float(time.time())
+        current_territory = [x+1 for x in self.curr_territory]
         hour_student, letter = self.player_instances[player_number].play(self.options_letter[player_number], self.constraints[player_number], self.curr_state, current_territory)
         end_play = float(time.time())
         self.time_move_start.append(start_play)
@@ -302,7 +305,6 @@ class  clockGame():
         self.curr_state[hour] = letter
         self.curr_territory[hour] = player_number
         self.letter_position[letter] = [hour,player_number]
-        print("player " + str(player_number + 1) + " autoplayed letter "+ letter + " at hour "+ str(hour%12 if hour%12!=0 else 12))
         self.add_to_log(player_number, letter, hour)
         
 
@@ -370,22 +372,19 @@ class  clockGame():
                         self.constraints_inputted[2] = True
                         self.auto_play(2)
                     self.clockapp_instance["constraints"] = self.constraints
-                    #self.constraints = self.clockapp_instance["constraints"]
                     self.clockapp_instance["update_indicator"] = 0
                     with open("clock_gui.pkl", "wb") as f:
                         pkl.dump(self.clockapp_instance, f)
+
+                    
+
                 
 
                 if self.clockapp_instance["update_indicator"] == 2:      #1 if only player names have been selected, 2 if any actual clock entries are present to be recorded.
-                    #if self.clockapp_instance["is_listbox"]
-                    time.sleep(0.3)
-                    with open("clock_gui.pkl", "rb") as f:
-                        self.clockapp_instance = pkl.load(f)
                     current_player = (self.counter - 1)%3
-                    #print(self.constraints)
                     #update current player characteristic
                     self.start_time = time.time()
-                    if current_player == 0 and self.clockapp_instance["constraints_choosing_over"] == True:
+                    if current_player == 0:
                         hour = self.clockapp_instance["game_actions"][-1][1]
                         letter = self.clockapp_instance["game_actions"][-1][0]
                         self.counter = self.counter+1
@@ -395,7 +394,6 @@ class  clockGame():
                         self.curr_state[hour] = letter
                         self.curr_territory[hour] = 0
                         self.letter_position[letter] = [hour,0]
-                        print("player 1 played letter "+ letter + " at hour "+ str(hour%12 if hour%12!=0 else 12))
                         time_now = time.time()
                         self.time_move_end.append(time_now)
                         self.time_move_start.append(time_now)
@@ -411,9 +409,8 @@ class  clockGame():
                         if 1 in auto_players and 2 in auto_players:
                             if len(self.options_hour) != 0:
                                 self.auto_play(2)
-                        #print(self.clockapp_instance["game_actions"])
 
-                    elif current_player == 1 and self.clockapp_instance["constraints_choosing_over"] == True:
+                    elif current_player == 1:
                         hour = self.clockapp_instance["game_actions"][-1][1]
                         letter = self.clockapp_instance["game_actions"][-1][0]
                         self.counter = self.counter+1
@@ -423,7 +420,6 @@ class  clockGame():
                         self.curr_state[hour] = letter
                         self.curr_territory[hour] = 1
                         self.letter_position[letter] = [hour,1]
-                        print("player 2 played letter "+ letter + " at hour "+ str(hour%12 if hour%12!=0 else 12))
                         time_now = time.time()
                         self.time_move_end.append(time_now)
                         self.time_move_start.append(time_now)
@@ -440,7 +436,7 @@ class  clockGame():
                             if len(self.options_hour) != 0:
                                 self.auto_play(0)
 
-                    elif current_player == 2 and self.clockapp_instance["constraints_choosing_over"] == True:
+                    elif current_player == 2:
                         hour = self.clockapp_instance["game_actions"][-1][1]
                         letter = self.clockapp_instance["game_actions"][-1][0]
                         self.counter = self.counter+1
@@ -450,7 +446,6 @@ class  clockGame():
                         self.curr_state[hour] = letter
                         self.curr_territory[hour] = 2
                         self.letter_position[letter] = [hour,2]
-                        print("player 3 played letter "+ letter + " at hour "+ str(hour%12 if hour%12!=0 else 12))
                         time_now = time.time()
                         self.time_move_end.append(time_now)
                         self.time_move_start.append(time_now)
@@ -466,16 +461,13 @@ class  clockGame():
                         if 1 in auto_players and 0 in auto_players:
                             if len(self.options_hour) != 0:
                                 self.auto_play(1)
-                    self.constraints = self.clockapp_instance["constraints"]
+
+                    self.clockapp_instance["constraints"] = self.constraints
                     self.constraints_after_discarding = copy.deepcopy(self.constraints)
                     self.clockapp_instance["constraints_after_discarding"] = self.constraints_after_discarding
-
-                    if self.clockapp_instance["constraints_choosing_over"] == False:
-                        self.clockapp_instance["constraints_choosing_over"] = True
                     
                     
                     if len(self.options_hour) == 0:                #Implies that game over
-                        print("Game over")
                         with open("clock_gui.pkl", "wb") as f:
                             pkl.dump(self.clockapp_instance, f)
                         self.score_calculator()
@@ -494,8 +486,8 @@ class  clockGame():
         if (self.use_gui and self.indicator_gui_auto == 1) or not self.use_gui:
             if not self.use_gui:        #If this is the no_gui case
                 self.initial_constraints = copy.deepcopy(self.constraints)  #since I am going to change constraints very soon
-                print("Choose player 1 : 0 for default player, 1/2/3..11 for p1/p2/p3...")
-                player_0 = input()
+                # print("Choose player 1 : 0 for default player, 1/2/3..11 for p1/p2/p3...")
+                player_0 = self._p0 # input()
                 self.initialise_player(int(player_0), 0)
                 self.player_type.append(int(player_0))
                 choose_start = float(time.time())
@@ -503,16 +495,15 @@ class  clockGame():
                 choose_end = float(time.time())
                 self.time_choose[0] = choose_end - choose_start
                 #self.logger.debug("No GUI flag specified")
-                print("Choose player 2 : 0 for default player, 1/2/3..11 for p1/p2/p3...")
-                player_1 = input()
+                # print("Choose player 2 : 0 for default player, 1/2/3..11 for p1/p2/p3...")
+                player_1 = self._p1 # input()
                 self.initialise_player(int(player_1), 1)
                 self.player_type.append(int(player_1))
                 choose_start = float(time.time())
                 self.constraints[1] = self.player_instances[1].choose_discard(self.options_letter[1],self.constraints[1])
                 choose_end = float(time.time())
                 self.time_choose[1] = choose_end - choose_start
-                print("Choose player 3 : 0 for default player, 1/2/3..11 for p1/p2/p3...")
-                player_2 = input()
+                player_2 = self._p2 # input()
                 self.initialise_player(int(player_2), 2)
                 self.player_type.append(int(player_2))
                 choose_start = float(time.time())
@@ -544,8 +535,8 @@ class  clockGame():
             while len(self.options_hour) != 0:    
                 self.counter = 1
                 
-                current_territory = [x+1 for x in self.curr_territory]
                 start_play = float(time.time())
+                current_territory = [x+1 for x in self.curr_territory]
                 hour, letter = self.player_instances[0].play(self.options_letter[0], self.constraints[0], self.curr_state, current_territory)
                 end_play = float(time.time())
                 self.time_move_start.append(start_play)
@@ -557,14 +548,12 @@ class  clockGame():
                 self.curr_state[hour] = letter
                 self.curr_territory[hour] = 0
                 self.letter_position[letter] = [hour,0]
-                print("player 1 played letter "+ letter + " at hour "+ str(hour%12))
                 if self.use_gui:
                     self.clockapp_instance["game_actions"].append([letter, hour])
                 self.add_to_log(0, letter, hour)
                 
-                
-                current_territory = [x+1 for x in self.curr_territory]
                 start_play = float(time.time())
+                current_territory = [x+1 for x in self.curr_territory]
                 hour, letter = self.player_instances[1].play(self.options_letter[1], self.constraints[1], self.curr_state, current_territory)
                 end_play = float(time.time())
                 self.time_move_start.append(start_play)
@@ -576,14 +565,12 @@ class  clockGame():
                 self.curr_state[hour] = letter
                 self.curr_territory[hour] = 1
                 self.letter_position[letter] = [hour,1]
-                print("player 2 played letter "+ letter + " at hour "+ str(hour%12))
                 if self.use_gui:
                     self.clockapp_instance["game_actions"].append([letter, hour])
                 self.add_to_log(1, letter, hour)
                 
-                
-                current_territory = [x+1 for x in self.curr_territory]
                 start_play = float(time.time())
+                current_territory = [x+1 for x in self.curr_territory]
                 hour, letter = self.player_instances[2].play(self.options_letter[2], self.constraints[2], self.curr_state, current_territory)
                 end_play = float(time.time())
                 self.time_move_start.append(start_play)
@@ -595,7 +582,6 @@ class  clockGame():
                 self.curr_state[hour] = letter
                 self.curr_territory[hour] = 2
                 self.letter_position[letter] = [hour,2]
-                print("player 3 played letter "+ letter + " at hour "+ str(hour%12))
                 if self.use_gui:
                     self.clockapp_instance["game_actions"].append([letter, hour])
                 self.add_to_log(2, letter, hour)
@@ -603,14 +589,12 @@ class  clockGame():
                 #print("hi")
                 self.end_time = time.time()
                 if self.end_time - self.start_time > self.max_time: #timekeeping aspect
-                    print("Simulation terminated due to excess time taken.")
-                    with open("log_moves.txt", 'a' ) as f:
+                    with open(f"logs/log_moves_{self._run_id}.txt", 'a' ) as f:
                         f.write("Simulation terminated due to excess time taken.")
                         f.write('\n')
                     self.timeout = True
                     break
-            if not self.timeout:    
-                print("Game over")
+            if not self.timeout:
                 with open("clock_gui.pkl", "wb") as f:
                     pkl.dump(self.clockapp_instance, f) 
                 self.score_calculator()
@@ -628,6 +612,10 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("--no_gui", "-ng", default = False, help="Disable GUI")
     parser.add_argument("--seed", "-s", default = 5, help="Choose seed number")
+    parser.add_argument("--p0", "-p0", default = 6, help="Choose player 0")
+    parser.add_argument("--p1", "-p1", default = 6, help="Choose player 1")
+    parser.add_argument("--p2", "-p2", default = 6, help="Choose player 2")
+    parser.add_argument("--run_id", "-run_id", default = 0, help="Don't pass it directly. Use the automation script to use this feature.")
     args = parser.parse_args()
     instance_clockgame = clockGame(args)
     instance_clockgame.use_gui = not args.no_gui
